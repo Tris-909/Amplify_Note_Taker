@@ -1,14 +1,34 @@
 import React, { useState, useEffect } from 'react';
 import { withAuthenticator, AmplifySignOut  } from '@aws-amplify/ui-react';
+import { listNotes } from './graphql/queries';
+import { createNote } from './graphql/mutations';
+import { API, graphqlOperation } from 'aws-amplify';
 
 const App = () => {
-  const [notes, setNotes] = useState([{
-    id: 1,
-    note: 'Test'
-  }]);
+  const [notes, setNotes] = useState([]);
+  const [submit, setSubmit] = useState(false);
+  const [noteInput, setNoteInput] = useState("");
 
-  const onSubmitHandler = () => {
+  useEffect(() => {
+    async function getNotesFromAWS() {
+      const result = await API.graphql(graphqlOperation(listNotes));
+      setNotes(result.data.listNotes.items)
+    }
 
+    getNotesFromAWS();
+  }, [submit]);
+
+  const onSubmitHandler = async (e) => {
+    e.preventDefault();
+    setSubmit(true);
+
+    const input = {
+      note: noteInput
+    };
+
+    const result = await API.graphql(graphqlOperation(createNote, { input: input  }));
+    setNoteInput("");
+    setSubmit(false);
   }
 
   return (
@@ -27,7 +47,7 @@ const App = () => {
             Amplify Note Taker
           </h1>
           <form className="mb3" onSubmit={onSubmitHandler}>
-            <input type="text" className="pa2 f4" placeholder="Write a note" /> 
+            <input type="text" className="pa2 f4" placeholder="Write a note" value={noteInput} onChange={(e) => setNoteInput(e.target.value)} /> 
             <button type="submit">Add Note</button>
           </form>
           <div>

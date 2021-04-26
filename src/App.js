@@ -1,12 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { withAuthenticator, AmplifySignOut  } from '@aws-amplify/ui-react';
 import { listNotes } from './graphql/queries';
-import { createNote } from './graphql/mutations';
+import { createNote, deleteNote, updateNote } from './graphql/mutations';
 import { API, graphqlOperation } from 'aws-amplify';
+
+import TextField from '@material-ui/core/TextField';
+import Grid from '@material-ui/core/Grid';
+import Button from '@material-ui/core/Button';
+import Card from '@material-ui/core/Card';
+import CardActions from '@material-ui/core/CardActions';
+import CardContent from '@material-ui/core/CardContent';
+import Typography from '@material-ui/core/Typography';
 
 const App = () => {
   const [notes, setNotes] = useState([]);
-  const [submit, setSubmit] = useState(false);
+  const [update, setUpdate] = useState(false);
+  const [noteUpdateID, setNoteUpdateID] = useState("");
+  const [editNoteInput, setEditNoteInput] = useState("");
   const [noteInput, setNoteInput] = useState("");
 
   useEffect(() => {
@@ -16,55 +26,106 @@ const App = () => {
     }
 
     getNotesFromAWS();
-  }, [submit]);
+  }, [update]);
 
   const onSubmitHandler = async (e) => {
     e.preventDefault();
-    setSubmit(true);
+    setUpdate(true);
 
     const input = {
       note: noteInput
     };
 
-    const result = await API.graphql(graphqlOperation(createNote, { input: input  }));
+    await API.graphql(graphqlOperation(createNote, { input: input  }));
     setNoteInput("");
-    setSubmit(false);
+    setUpdate(false);
+  }
+
+  const deleteNoteHandler = async (noteId) => {
+    setUpdate(true);
+    await API.graphql(graphqlOperation(deleteNote, { input: { id: noteId } }));
+    setUpdate(false);
+  }
+
+  const editNoteHandler = async (editNoteId, noteContent) => {
+    setNoteUpdateID(editNoteId);
+    setEditNoteInput(noteContent);
+  }
+
+  const submitEditNote = async () => {
+    setUpdate(true);
+
+    const input = {
+      id: noteUpdateID,
+      note: editNoteInput
+    }
+
+    await API.graphql(graphqlOperation(updateNote, {
+      input: input
+    }));
+
+    setNoteUpdateID("");
+    setEditNoteInput("");
+    setUpdate(false);
   }
 
   return (
     <>
       <AmplifySignOut />
-      <div 
-        className="
-          flex 
-          flex-column 
-          items-center 
-          justify-center 
-          pa3 
-          bg-washed-red
-        ">
-          <h1 className="code f2-1">
-            Amplify Note Taker
-          </h1>
-          <form className="mb3" onSubmit={onSubmitHandler}>
-            <input type="text" className="pa2 f4" placeholder="Write a note" value={noteInput} onChange={(e) => setNoteInput(e.target.value)} /> 
-            <button type="submit">Add Note</button>
+
+      <Grid container spacing={3}>
+        <Grid container item xs={6} justify="center">
+          <form onSubmit={onSubmitHandler} style={{
+            border: '2px solid black',
+            padding: '1rem',
+            height: '200px',
+            marginTop: '2rem'
+          }}>
+            <Grid container justify="center" direction="column">
+            <TextField id="standard-basic" label="Add Note" value={noteInput} onChange={(e) => setNoteInput(e.target.value)} />
+            <Button 
+              variant="contained"
+              color="primary"
+              type="submit"
+              style={{
+                marginTop: '2rem'
+              }}> 
+                Add Note 
+            </Button>
+            </Grid>
           </form>
-          <div>
-            {notes.map((note) => {
+        </Grid>
+
+        <Grid item xs={4} container justify="center" direction="column">
+          {notes.map((note) => {
               return(
-                <div className="flex items-center" key={note.id}>
-                  <li className="list pa3 f3">
-                    { note.note }
-                    <button className="bg-transparent bn f4">
-                      <span>&times;</span>
-                    </button>
-                  </li> 
-                </div>
+                <Card variant="outlined" key={note.id} style={{marginTop: '2rem', display: 'flex', flexDirection: 'row'}}>
+                  <CardContent>
+                    {
+                      noteUpdateID === note.id ? (
+                        <TextField id="standard-basic" value={editNoteInput} onChange={(e) => setEditNoteInput(e.target.value)} /> 
+                      ) : (
+                        <Typography variant="h5" component="h2">
+                          {note.note}
+                        </Typography>
+                      )
+                    }
+                  </CardContent>
+                  <CardActions>
+                      <Button size="small" onClick={() => deleteNoteHandler(note.id)}> Delete </Button>
+                      {
+                        noteUpdateID === note.id ? (
+                          <Button size="small" onClick={() => submitEditNote(note.id)}> Okay </Button>
+                        ) : (
+                          <Button size="small" onClick={() => editNoteHandler(note.id, note.note)}> Edit </Button>
+                        )
+                      }
+                  </CardActions>
+                </Card>
               )
             })}
-          </div>
-      </div>
+        </Grid>
+      </Grid>
     </>
   );
 }
